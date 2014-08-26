@@ -11,6 +11,7 @@
 
 ;; Forward Declarations
 (declare extract-methods)
+(declare extract-resources)
 (declare build-ns)
 
 ;; The base Discovery Service URL we will process
@@ -29,16 +30,16 @@
 					(filter #(= (%1 :preferred) true) (discovery-doc :items)))))
 
 (defn build
-	"Given a discovery document URL, construct an map of names to functions that 
-	will make the various calls against the resources. Each call accepts a gapi.auth 
-	state map, and list of argument values, an in some cases a JSON encoded body to send 
+	"Given a discovery document URL, construct an map of names to functions that
+	will make the various calls against the resources. Each call accepts a gapi.auth
+	state map, and list of argument values, an in some cases a JSON encoded body to send
 	(for write calls)"
 	[api_url]
     (let [api_doc (json/read-json ((http/get api_url) :body))]
 		(reduce
-			(fn [methods [key resource]] (merge methods (extract-methods (api_doc :baseUrl) resource)))
+			(fn [methods resource] (merge methods (extract-methods (api_doc :baseUrl) resource)))
 			{}
-			(api_doc :resources))))
+			(-> api_doc extract-resources))))
 
 (defn list-methods
 	"List the available methods in a service"
@@ -60,7 +61,7 @@
 	[auth service method & args]
 	(apply ((service method) :fn) auth args))
 
-;; Memoized versions of API calls 
+;; Memoized versions of API calls
 (def ^{:private true} m-list-apis (memoize list-apis))
 (def ^{:private true} m-build (memoize build))
 
@@ -192,6 +193,21 @@
 	(let [base_args
 			(if (= (method :description) "POST") '[auth parameters body] '[auth parameters])]
 		base_args))
+
+(defn extract-resources
+  "Collect nested resources from a discovery document and return them as a seq of maps."
+  [m]
+    (loop [nodes (-> m :resources vals)
+           all []]
+      (let [leaf-resources (remove empty? (map #(select-keys % [:methods]) nodes))
+            nested-resources (remove empty? (map #(select-keys % [:resources]) nodes))]
+        (if (not-empty nested-resources)
+          (recur (->> nested-resources
+                      (map :resources)
+                      (map vals)
+                      (apply concat))
+                 (concat all leaf-resources))
+          (concat all leaf-resources)))))
 
 (defn- extract-methods
 	"Retrieve all methods from the given resource"
