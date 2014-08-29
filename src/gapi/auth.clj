@@ -6,7 +6,7 @@
     	[clj-http.client :as http]
 		[clojure.string :as string]))
 
-(declare generate-state encode)
+(declare generate-state encode is-valid refresh-token)
 (def ^{:private true} auth_url "https://accounts.google.com/o/oauth2/auth")
 (def ^{:private true} token_url "https://accounts.google.com/o/oauth2/token")
 
@@ -28,9 +28,11 @@
 							:oauth :simple))))
 
 (defmethod call-params :oauth [state params]
-	;; TODO: check for expired auth token and call refresh if possible
-	(let [headers (if (params :headers) (params :headers) {})]
-		(assoc params :headers (assoc headers "Authorization" (str "Bearer " (@state :token))))))
+  (do
+    (if (not (is-valid state))
+      (refresh-token state))
+    (let [headers (if (params :headers) (params :headers) {})]
+      (assoc params :headers (assoc headers "Authorization" (str "Bearer " (@state :token)))))))
 
 (defmethod call-params :simple [state, params]
 	(assoc params :query-params (assoc (params :query-params) "key" (@state :api_key))))
