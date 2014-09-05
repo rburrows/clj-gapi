@@ -82,7 +82,7 @@
 			http_resp (http/post token_url {:body (string/join "&" params)
 					:content-type "application/x-www-form-urlencoded"})
 			resp (json/read-json (http_resp :body))]
-			(swap! state assoc :token (resp :access_token)
+			(swap! state assoc :raw resp :token (resp :access_token)
 				:refresh (resp :refresh_token)
 				:expires (+ (System/currentTimeMillis) (* (resp :expires_in) 1000)))
 			true
@@ -102,7 +102,7 @@
 			http_resp (http/post token_url {:body (string/join "&" params)
 					:content-type "application/x-www-form-urlencoded"})
 			resp (json/read-json (http_resp :body))]
-			(swap! state assoc :token (resp :access_token)
+			(swap! state assoc :raw resp :token (resp :access_token)
 				:expires (+ (System/currentTimeMillis) (* (resp :expires_in) 1000)))
 			true)
 		false))
